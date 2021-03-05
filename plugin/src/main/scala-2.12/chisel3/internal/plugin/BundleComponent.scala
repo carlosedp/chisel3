@@ -52,8 +52,7 @@ private[plugin] class BundleComponent(val global: Global) extends PluginComponen
       val paramAccessors = mutable.ListBuffer[Symbol]()
       var primaryConstructor: Option[DefDef] = None
       body.foreach {
-        // new Bundle {} has an empty body, don't try to ask for the .symbol (it's null)
-        case acc if acc.nonEmpty && acc.symbol.isParamAccessor =>
+        case acc: ValDef if acc.symbol.isParamAccessor =>
           paramAccessors += acc.symbol
         case con: DefDef if con.symbol.isPrimaryConstructor =>
           primaryConstructor = Some(con)
@@ -83,17 +82,18 @@ private[plugin] class BundleComponent(val global: Global) extends PluginComponen
 
         val thiz = gen.mkAttributedThis(bundle.symbol)
 
+        // The params have spaces after them (Scalac implementation detail)
+        val paramLookup: String => Symbol = params.map(sym => sym.name.toString.trim -> sym).toMap
+
         // Create a this.<ref> for each field matching order of constructor arguments
         // List of Lists because we can have multiple parameter lists
         val conArgs: List[List[Tree]] =
           constructor.vparamss.map(_.map { vp =>
-            params.collectFirst {
-              case p if vp.name == p.name =>
-                // Make this.<ref>
-                val select = gen.mkAttributedSelect(thiz, p)
-                // Clone any Data parameters to avoid field aliasing, need full clone to include direction
-                if (isData(vp.symbol)) cloneTypeFull(select) else select
-            }.get
+            val p = paramLookup(vp.name.toString)
+            // Make this.<ref>
+            val select = gen.mkAttributedSelect(thiz, p)
+            // Clone any Data parameters to avoid field aliasing, need full clone to include direction
+            if (isData(vp.symbol)) cloneTypeFull(select) else select
           })
 
         val ttpe = Ident(bundle.symbol)

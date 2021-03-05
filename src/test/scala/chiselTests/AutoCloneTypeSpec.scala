@@ -239,6 +239,20 @@ class AutoCloneTypeSpec extends ChiselFlatSpec with Utils {
     elaborate { new TestModule(3) }
   }
 
+  "Autoclonetype" should "support Bundles with if-blocks" in {
+    class MyModule(n: Int) extends MultiIOModule {
+      val io = IO(new Bundle {
+        val in = Input(UInt(8.W))
+        val out = Output(UInt(8.W))
+        if (n > 4) {
+          println("Here we are!")
+        }
+      })
+      io.out := io.in
+    }
+    elaborate(new MyModule(3))
+  }
+
   // New tests from the plugin
   if (usingPlugin) {
     behavior of "Compiler Plugin Autoclonetype"
